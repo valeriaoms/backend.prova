@@ -1,0 +1,144 @@
+// src/dados/livros.json
+[
+    {
+      "codigo": 1,
+      "ISNB": "8578601777",
+      "titulo": "Cristianismo puro e simples",
+      "ano": 2017,
+      "preco": 10.25
+    },
+    {
+      "codigo": 2,
+      "ISNB": "8575228781",
+      "titulo": "Construindo aplicações com o NodeJs",
+      "ano": 2023,
+      "preco": 15.98
+    },
+    {
+      "codigo": 3,
+      "ISNB": "658605799",
+      "titulo": "Como se preparar para economia liberal",
+      "ano": 2020,
+      "preco": 5.23
+    }
+  ]
+  // src/util/dados-livro.ts
+import * as fs from 'fs';
+import * as path from 'path';
+
+export class DadosLivro {
+  private static filePath = path.join(__dirname, '../dados/livros.json');
+
+  static async lerLivros(): Promise<any[]> {
+    const data = fs.readFileSync(this.filePath, 'utf8');
+    return JSON.parse(data);
+  }
+
+  static async escreverLivros(livros: any[]): Promise<void> {
+    fs.writeFileSync(this.filePath, JSON.stringify(livros, null, 2));
+  }
+}
+// src/livro/livro.module.ts
+import { Module } from '@nestjs/common';
+import { LivroController } from './livro.controller';
+import { LivroService } from './livro.service';
+
+@Module({
+  controllers: [LivroController],
+  providers: [LivroService],
+})
+export class LivroModule {}
+// src/livro/livro.service.ts
+import { Injectable } from '@nestjs/common';
+import { DadosLivro } from '../util/dados-livro';
+
+@Injectable()
+export class LivroService {
+  async listarLivros() {
+    return await DadosLivro.lerLivros();
+  }
+
+  async incluirLivro(livro: any) {
+    const livros = await DadosLivro.lerLivros();
+    livros.push(livro);
+    await DadosLivro.escreverLivros(livros);
+  }
+
+  async consultarPorCodigo(codigo: number) {
+    const livros = await DadosLivro.lerLivros();
+    return livros.find(livro => livro.codigo === codigo);
+  }
+
+  async alterarLivro(codigo: number, livroAlterado: any) {
+    const livros = await DadosLivro.lerLivros();
+    const index = livros.findIndex(livro => livro.codigo === codigo);
+    if (index !== -1) {
+      livros[index] = { ...livros[index], ...livroAlterado };
+      await DadosLivro.escreverLivros(livros);
+    }
+    return livros[index];
+  }
+
+  async excluirLivro(codigo: number) {
+    let livros = await DadosLivro.lerLivros();
+    livros = livros.filter(livro => livro.codigo !== codigo);
+    await DadosLivro.escreverLivros(livros);
+    return { message: 'Livro excluído com sucesso.' };
+  }
+}
+// src/livro/livro.controller.ts
+import { Controller, Get, Post, Put, Delete, Body, Query } from '@nestjs/common';
+import { LivroService } from './livro.service';
+
+@Controller('livros')
+export class LivroController {
+  constructor(private readonly livroService: LivroService) {}
+
+  @Get()
+  async listarLivros() {
+    return await this.livroService.listarLivros();
+  }
+
+  @Post()
+  async incluirLivro(@Body() livro: any) {
+    await this.livroService.incluirLivro(livro);
+    return { message: 'Livro incluído com sucesso.' };
+  }
+
+  @Get('livro')
+  async consultarPorCodigo(@Query('codigo') codigo: number) {
+    return await this.livroService.consultarPorCodigo(codigo);
+  }
+
+  @Put('codigo')
+  async alterarLivro(@Body() livroAlterado: any, @Query('codigo') codigo: number) {
+    return await this.livroService.alterarLivro(codigo, livroAlterado);
+  }
+
+  @Delete('codigo')
+  async excluirLivro(@Query('codigo') codigo: number) {
+    return await this.livroService.excluirLivro(codigo);
+  }
+
+  @Get('funcionamento')
+  async textoFuncionamento() {
+    return { message: 'O Node.js está funcionando corretamente.' };
+  }
+}
+// src/app.module.ts
+import { Module } from '@nestjs/common';
+import { LivroModule } from './livro/livro.module';
+
+@Module({
+  imports: [LivroModule],
+})
+export class AppModule {}
+// src/main.ts
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  await app.listen(3000);
+}
+bootstrap();
